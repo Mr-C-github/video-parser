@@ -1,0 +1,41 @@
+body {
+    background-color: #f8f9fa;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.container {
+    max-width: 800px;
+}
+
+.card {
+    border: none;
+    border-radius: 12px;
+}
+
+#videoUrl {
+    resize: none;
+    min-height: 120px;
+}
+
+#resultArea {
+    min-height: 300px;
+}
+
+.list-group-item {
+    border-radius: 8px !important;
+    margin-bottom: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.badge {
+    font-weight: 500;
+    padding: 5px 8px;
+    border-radius: 6px;
+}
+
+#resultCover {
+    max-height: 200px;
+    width: 100%;
+    object-fit: cover;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
