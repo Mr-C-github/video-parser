@@ -5,3 +5,5 @@ lxml==4.6.4
 tqdm==4.62.3
 ffmpeg-python==0.2.0
 python-dotenv==0.19.1
+PyExecJS>=1.5.1
+ fake_useragent>=2.1.0

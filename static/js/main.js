@@ -114,11 +114,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function downloadVideo(url, title, type) {
         try {
+            // 创建中止控制器
+            const controller = new AbortController();
+            window.downloadAbortController = controller; // 全局可访问
+
+            // 显示进度条
+            const progressBar = initProgressBar(title, type);
+
             const response = await fetch('/download', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                signal: controller.signal,
                 body: JSON.stringify({
                     url: url,
                     title: title,
@@ -126,11 +134,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             });
 
-            const data = await response.json();
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || '下载失败');
+            }
 
-            if (data.success) {
+            /*const data = await response.json();
+
+            if (response.ok) {
                 // 直接触发下载
-                window.open(url, '_blank');
+                // window.open(url, '_blank');
 
                 // 或者使用更复杂的方法处理下载
                 // const a = document.createElement('a');
@@ -139,12 +152,110 @@ document.addEventListener('DOMContentLoaded', function() {
                 // document.body.appendChild(a);
                 // a.click();
                 // document.body.removeChild(a);
+
+
             } else {
                 showError(data.error || '下载失败');
+            }*/
+
+            // 获取文件名（从响应头或生成）
+            const disposition = response.headers.get('Content-Disposition');
+            const filename = disposition
+                ? disposition.split('filename=')[1].replace(/"/g, '')
+                : `${title}.${type}`;
+
+            // 创建可读流
+            const reader = response.body.getReader();
+            const contentLength = +response.headers.get('Content-Length') || 0;
+            let receivedLength = 0;
+            const chunks = [];
+
+            // 流式接收数据
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                chunks.push(value);
+                receivedLength += value.length;
+
+                // 更新进度
+                progressBar.update(
+                    contentLength > 0
+                        ? Math.round((receivedLength / contentLength) * 100)
+                        : null,
+                    formatBytes(receivedLength),
+                    contentLength > 0 ? formatBytes(contentLength) : '未知'
+                );
             }
+
+            // 创建下载链接
+            const blob = new Blob(chunks);
+            const blobUrl = URL.createObjectURL(blob);
+            triggerDownload(blobUrl, filename);
+
+            // 清理
+            setTimeout(() => {
+                URL.revokeObjectURL(blobUrl);
+                progressBar.complete();
+            }, 100);
+
         } catch (error) {
+            if (error.name !== 'AbortError') {
             showError('下载请求失败');
             console.error('下载失败:', error);
+            }
+        }
+    }
+
+    // 辅助函数
+    function initProgressBar(title, type) {
+        const container = document.getElementById('download-progress');
+        const bar = document.getElementById('progress-bar');
+        const text = document.getElementById('progress-text');
+
+        console.log(container)
+        container.style.display = 'block';
+        bar.style.width = '0%';
+        text.textContent = `准备下载 ${title}.${type}...`;
+
+        return {
+            update: (percent, loaded, total) => {
+                bar.style.width = `${percent || 0}%`;
+                text.textContent = percent
+                    ? `${title}.${type} - ${percent}% (${loaded}/${total})`
+                    : `${title}.${type} - 已下载 ${loaded}`;
+            },
+            complete: () => {
+                text.textContent = '下载完成！';
+                setTimeout(() => {
+                    container.style.display = 'none';
+                }, 2000);
+            }
+        };
+    }
+
+    function triggerDownload(url, filename) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    function formatBytes(bytes) {
+        if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
+        if (bytes >= 1048576) return (bytes / 1048576).toFixed(2) + ' MB';
+        if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
+        return bytes + ' bytes';
+    }
+
+// 取消下载函数
+    function cancelDownload() {
+        if (window.downloadAbortController) {
+            window.downloadAbortController.abort();
+            showMessage('下载已取消');
         }
     }
 

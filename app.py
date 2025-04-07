@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, Response
 from core.parsers.douyin import DouyinParser
 from core.parsers.kuaishou import KuaishouParser
 from core.parsers.bilibili import BilibiliParser
@@ -8,6 +8,7 @@ import re
 import os
 from datetime import datetime
 from urllib.parse import urlparse
+import urllib.parse
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
@@ -83,15 +84,31 @@ def download_video():
     try:
         # 清理文件名中的非法字符
         title = re.sub(r'[\\/*?:"<>|]', '', data['title'])
+        encoded_filename = urllib.parse.quote(title)
         filepath = downloader.download(data['url'], title)
 
-        if filepath:
-            return jsonify({
-                'success': True,
-                'path': filepath,
-                'filename': os.path.basename(filepath)
-            })
-        return jsonify({'error': '下载失败'}), 500
+        # print("title", filepath)
+
+        # if filepath:
+        #     return jsonify({
+        #         'success': True,
+        #         'path': filepath,
+        #         'filename': os.path.basename(filepath)
+        #     })
+
+        # 使用 RFC 6266 格式设置 Content-Disposition 头
+        headers = {
+            'Content-Disposition': f'attachment; filename*=UTF-8\'\'{encoded_filename}"',
+            'Content-Type': filepath['content_type']
+        }
+
+        if filepath['content_length']:
+            headers['Content-Length'] = filepath['content_length']
+
+        response = Response(filepath["stream"], mimetype='application/octet-stream')
+        print("response",response)
+        return response
+        # return jsonify({'error': '下载失败'}), 500
     except Exception as e:
         return jsonify({'error': f'下载出错: {str(e)}'}), 500
 
